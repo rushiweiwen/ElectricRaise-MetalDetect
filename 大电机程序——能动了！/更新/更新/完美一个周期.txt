@@ -1,0 +1,120 @@
+//*******************************************************************************
+//  MSP-FET430P140 Demo - Timer_B, PWM TB1-6, Up Mode, 32kHz ACLK
+//
+//  Description: This program generates six PWM outputs on P4.1-6 using
+//  Timer_B configured for up mode. The value in CCR0, 512-1, defines the PWM
+//  period and the values in CCR1-6 the PWM duty cycles. Using 32kHz ACLK
+//  as TBCLK, the timer period is 15.6ms. Normal operating mode is LPM3.
+//  ACLK = TBCLK = LFXT1 = 32768Hz, MCLK = SMCLK = default DCO ~800kHz.
+//  //* External watch crystal installed on XIN XOUT is required for ACLK *//	
+//
+//               MSP430F149
+//            -----------------
+//        /|\|              XIN|-
+//         | |                 | 32k
+//         --|RST          XOUT|-
+//           |                 |
+//           |         P4.1/TB1|--> CCR1 - 75% PWM
+//           |         P4.2/TB2|--> CCR2 - 25% PWM
+//           |         P4.3/TB3|--> CCR3 - 12.5% PWM
+//           |         P4.4/TB4|--> CCR4 - 6.25% PWM
+//           |         P4.5/TB5|--> CCR5 - 3.125% PWM
+//           |         P4.6/TB6|--> CCR6 - 1.5625% PWM
+//
+//  M. Buccini
+//  Texas Instruments Inc.
+//  Feb 2005
+//  Built with CCE Version: 3.2.0 and IAR Embedded Workbench Version: 3.21A
+//******************************************************************************
+
+#include  <msp430x14x.h>
+
+//  P4.2作为 电机的使能口
+
+unsigned char flag;
+
+
+//TB输出PWM给电机，作为对电机的驱动源
+void TB_PWM()
+{
+  //P4DIR |= 0x7e;                            // P4.1 - P4.6 output
+  //P4SEL |= 0x7e;                            // P4.1 - P4.6 TBx options
+  //只使用P4.1输出PWM波给电机
+   P4DIR |= BIT1;                            // P4.1 - P4.6 output
+   P4SEL |= BIT1;                            // P4.1 - P4.6 TBx options
+  TBCCR0 = 1;                               // PWM Period
+  TBCCTL1 = OUTMOD_2;                       // CCR1 reset/set
+  TBCCR1 = 1;                             // CCR1 PWM duty cycle
+  TBCTL = TBSSEL_1 + MC_1;                  // ACLK, up mode
+}
+
+//TA定时2秒，作为对电机的动作控制
+void  TA_Counter()
+{
+  P1DIR|=BIT0;
+  P1OUT|=BIT0;
+  CCTL0 = CCIE;                         // CCR0 interrupt enabled  
+                                        //  Toggle rate = 32768/(2*1000) = 16.384
+  CCR0 = 32768-1;
+  TACTL = TASSEL_1 + MC_1;              // ACLK, upmode
+}
+
+
+//电机开始动
+void enable()
+{
+
+  P4OUT&=~BIT2;
+}
+
+//电机停止
+void disable()
+{
+  P4OUT|=BIT2;
+}
+
+
+
+
+
+void main(void)
+{
+  flag=0;
+  P4SEL&=~BIT2;
+  P6SEL&=~BIT0;
+  P4DIR|=BIT2;
+  P6DIR|=BIT0;
+  
+  
+  WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+  P6OUT|=BIT0;//初始化会左转！
+  TB_PWM();//不使用TB的中断，给电机的PWM波，使能电机
+  enable();
+
+
+  
+  
+  TA_Counter();//TA中断定时2秒
+ 
+  
+  
+  _BIS_SR(LPM3_bits + GIE);             // Enter LPM3 w/ interrupt
+}
+
+// Timer A0 interrupt service routine
+#pragma vector=TIMERA0_VECTOR
+__interrupt void Timer_A (void)
+{
+
+  flag++;
+  if(flag%2)
+  {
+     P1OUT^=BIT0;//测试用的LED
+     P6OUT^=BIT0;//反转
+  }
+ //P4OUT^=BIT2;
+ //disable();
+}
+
+
+

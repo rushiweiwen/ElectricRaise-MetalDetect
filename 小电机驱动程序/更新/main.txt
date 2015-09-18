@@ -1,0 +1,45 @@
+#include <msp430x14x.h>
+//延时函数，IAR自带，经常使用到
+#define CPU_F ((double)8000000)   //外部高频晶振8MHZ
+//#define CPU_F ((double)32768)   //外部低频晶振32.768KHZ
+#define delay_us(x) __delay_cycles((long)(CPU_F*(double)x/1000000.0)) 
+#define delay_ms(x) __delay_cycles((long)(CPU_F*(double)x/1000.0)) 
+
+//自定义数据结构，方便使用
+#define uchar unsigned char
+#define uint  unsigned int
+#define ulong unsigned long
+unsigned char F_Rotation[8]={0x08,0x0c,0x04,0x06,0x02,0x03,0x01,0x09};//正转表格
+unsigned char B_Rotation[8]={0x09,0x01,0x03,0x02,0x02,0x06,0x0c,0x08};//反转表格
+//*************************************************************************
+//			初始化IO口子程序
+//*************************************************************************
+void Port_init()
+{
+    P2SEL = 0x00;                   //P2口作为AD数据口
+    P2DIR = 0xFF;                   //P2为输出方向IO
+}
+
+//***********************************************************************
+//      主程序
+//***********************************************************************
+void main(void)
+{    
+      
+     WDTCTL = WDTPW + WDTHOLD;                      //系统时钟设置
+     Port_init();                     //系统初始化，设置IO口属性  
+     //TA_Counter();//TA中断定时2秒
+  
+           unsigned char a;
+           long s;
+           for(s=0;s<8*64;s++)
+               for(a=0;a<8;a++)
+           {
+               P2OUT=F_Rotation[a];  //输出对应的相 可以自行换成反转表格
+               delay_ms(1);        //改变这个参数可以调整电机转速
+     
+          }
+    
+   
+  
+}
